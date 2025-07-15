@@ -281,10 +281,10 @@ class TerminalUI:
         self.camera_running = False
         
     def setup_ui(self):
-        """Configura la interfaz principal para pantalla 800x400 vertical"""
-        # Configuración de ventana para pantalla 800x400 vertical
+        """Configura la interfaz principal para pantalla 400x800 vertical"""
+        # Configuración de ventana para pantalla 400x800 vertical
         self.root.title("Terminal BioEntry")
-        self.root.geometry("800x400")
+        self.root.geometry("400x800")
         self.root.configure(bg='black')
         
         # Eliminar decoraciones de ventana (pantalla completa)
@@ -298,55 +298,57 @@ class TerminalUI:
             fg='white',
             font=('Arial', 20)
         )
-        self.camera_label.place(x=0, y=0, width=800, height=400)
+        self.camera_label.place(x=0, y=0, width=400, height=800)
         
         # Frame superior transparente para título y estado
-        top_frame = tk.Frame(self.root, bg='black', height=80)
-        top_frame.place(x=0, y=0, width=800, height=80)
+        top_frame = tk.Frame(self.root, bg='black', height=100)
+        top_frame.place(x=0, y=0, width=400, height=100)
         
         # Título superpuesto
         title_label = tk.Label(
             top_frame,
-            text="TERMINAL DE ACCESO",
-            font=('Arial', 18, 'bold'),
+            text="TERMINAL\nDE ACCESO",
+            font=('Arial', 16, 'bold'),
             bg='black',
             fg='white',
-            relief=tk.FLAT
+            relief=tk.FLAT,
+            justify=tk.CENTER
         )
         title_label.pack(pady=(10, 0))
         
-        # Estado de conexión (esquina superior derecha)
-        self.online_status = tk.Label(
-            top_frame,
-            text="● OFFLINE",
-            font=('Arial', 12, 'bold'),
-            bg='black',
-            fg='#e74c3c'
-        )
-        self.online_status.place(x=650, y=10)
-        
-        # Hora (esquina superior izquierda)
+        # Hora (centrado en la parte superior)
         self.time_label = tk.Label(
             top_frame,
             text="",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 11, 'bold'),
             bg='black',
-            fg='white'
+            fg='white',
+            justify=tk.CENTER
         )
-        self.time_label.place(x=20, y=10)
+        self.time_label.place(x=150, y=70)
+        
+        # Estado de conexión (esquina superior derecha)
+        self.online_status = tk.Label(
+            self.root,
+            text="● OFFLINE",
+            font=('Arial', 10, 'bold'),
+            bg='black',
+            fg='#e74c3c'
+        )
+        self.online_status.place(x=320, y=10)
         
         # Frame inferior para mensajes
-        bottom_frame = tk.Frame(self.root, bg='black', height=100)
-        bottom_frame.place(x=0, y=300, width=800, height=100)
+        bottom_frame = tk.Frame(self.root, bg='black', height=120)
+        bottom_frame.place(x=0, y=680, width=400, height=120)
         
         # Label para mensajes superpuesto
         self.message_label = tk.Label(
             bottom_frame,
-            text="COLÓQUESE FRENTE A LA CÁMARA",
-            font=('Arial', 16, 'bold'),
+            text="COLÓQUESE FRENTE\nA LA CÁMARA",
+            font=('Arial', 14, 'bold'),
             bg='black',
             fg='#00ff00',
-            wraplength=750,
+            wraplength=350,
             justify=tk.CENTER
         )
         self.message_label.pack(expand=True)
@@ -355,15 +357,15 @@ class TerminalUI:
         exit_button = tk.Button(
             self.root,
             text="×",
-            font=('Arial', 16, 'bold'),
+            font=('Arial', 14, 'bold'),
             bg='#e74c3c',
             fg='white',
-            width=3,
+            width=2,
             height=1,
             relief=tk.FLAT,
             command=self.exit_app
         )
-        exit_button.place(x=750, y=360)
+        exit_button.place(x=360, y=760)
         
         # Actualizar tiempo cada segundo
         self.update_time()
@@ -401,9 +403,9 @@ class TerminalUI:
         self.root.after(3000, lambda: self.show_message("COLÓQUESE FRENTE A LA CÁMARA"))
     
     def update_camera_frame(self, frame):
-        """Actualiza el frame de la cámara en pantalla completa"""
-        # Redimensionar frame para pantalla completa 800x400
-        frame_resized = cv2.resize(frame, (800, 400))
+        """Actualiza el frame de la cámara en pantalla completa vertical"""
+        # Redimensionar frame para pantalla completa 400x800 (vertical)
+        frame_resized = cv2.resize(frame, (400, 800))
         
         # Convertir de BGR a RGB
         frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
@@ -442,10 +444,10 @@ class BioEntryTerminal:
         self.frame_queue = queue.Queue(maxsize=2)
         
     def setup_camera(self):
-        """Configura la cámara para pantalla 800x400"""
-        # Configurar cámara con resolución optimizada
+        """Configura la cámara para pantalla 400x800 vertical"""
+        # Configurar cámara con resolución optimizada para vertical
         config = self.picam2.create_preview_configuration(
-            main={"size": (800, 600)}  # Resolución más alta para mejor calidad
+            main={"size": (480, 640)}  # Resolución vertical para mejor calidad
         )
         self.picam2.configure(config)
         

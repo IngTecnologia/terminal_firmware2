@@ -10,14 +10,14 @@
     "retry_attempts": 3
   },
   "camera": {
-    "resolution": [640, 480],
-    "preview_size": [400, 300],
+    "resolution": [480, 640],
+    "preview_size": [400, 800],
     "face_detection_timeout": 3.0,
     "capture_quality": 85
   },
   "display": {
-    "width": 800,
-    "height": 400,
+    "width": 400,
+    "height": 800,
     "fullscreen": true,
     "orientation": "portrait"
   },
