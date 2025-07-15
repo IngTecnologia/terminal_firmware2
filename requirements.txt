@@ -1,0 +1,28 @@
+# Terminal BioEntry - Dependencias para Raspberry Pi
+
+# Cámara y visión por computadora
+opencv-python==4.8.1.78
+picamera2>=0.3.12
+
+# Interfaz gráfica
+tkinter
+Pillow>=10.0.0
+
+# Comunicación con API
+requests>=2.31.0
+
+# Base de datos local
+sqlite3
+
+# Lector de huellas AS608 (para modo offline)
+pySerial>=3.5
+
+# Utilidades
+numpy>=1.24.0
+python-dateutil>=2.8.2
+
+# Logging y configuración
+python-json-logger>=2.0.0
+
+# GPS (opcional para terminales móviles)
+# gpsd-py3>=0.3.0
