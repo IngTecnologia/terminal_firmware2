@@ -288,9 +288,8 @@ class TerminalUI:
         self.root.title("Terminal BioEntry")
         self.root.configure(bg='black')
         
-        # Configurar pantalla completa real
-        self.root.attributes('-fullscreen', True)
-        self.root.overrideredirect(True)
+        # Forzar actualización de la ventana antes de obtener dimensiones
+        self.root.update_idletasks()
         
         # Obtener dimensiones reales de la pantalla
         screen_width = self.root.winfo_screenwidth()
@@ -298,9 +297,19 @@ class TerminalUI:
         
         print(f"Pantalla detectada: {screen_width}x{screen_height}")
         
+        # Configurar geometría completa primero
+        self.root.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Luego configurar pantalla completa
+        self.root.attributes('-fullscreen', True)
+        self.root.overrideredirect(True)
+        
         # Actualizar dimensiones para usar en la aplicación
         self.screen_width = screen_width
         self.screen_height = screen_height
+        
+        # Forzar otra actualización después de configurar
+        self.root.update()
         
         # Label para cámara de fondo (pantalla completa usando dimensiones reales)
         self.camera_label = tk.Label(
@@ -384,8 +393,44 @@ class TerminalUI:
         self.root.bind('<Key-q>', lambda e: self.exit_app())
         self.root.focus_set()  # Permitir captura de teclas
         
+        # Programar la finalización de la inicialización
+        self.root.after(100, self.complete_setup)
+        
         # Actualizar tiempo cada segundo
         self.update_time()
+    
+    def complete_setup(self):
+        """Completa la configuración después de que la ventana esté lista"""
+        # Asegurar que estamos en pantalla completa
+        self.root.attributes('-fullscreen', True)
+        self.root.update()
+        
+        # Verificar dimensiones finales
+        final_width = self.root.winfo_width()
+        final_height = self.root.winfo_height()
+        
+        print(f"Dimensiones finales: {final_width}x{final_height}")
+        
+        if final_width > 1 and final_height > 1:
+            self.screen_width = final_width
+            self.screen_height = final_height
+            
+            # Reconfigurar elementos con dimensiones finales
+            self.camera_label.place_configure(width=final_width, height=final_height)
+            
+            # Reposicionar elementos
+            self.time_label.place_configure(x=final_width//2-50)
+            self.online_status.place_configure(x=final_width-120)
+            
+            # Reconfigurar frame inferior
+            bottom_frame = self.message_label.master
+            bottom_frame.place_configure(y=final_height-140, width=final_width)
+            
+            # Reposicionar botón de salida
+            for widget in self.root.winfo_children():
+                if isinstance(widget, tk.Button) and widget.cget('text') == '×':
+                    widget.place_configure(x=final_width-50, y=final_height-50)
+                    break
     
     def exit_app(self):
         """Cierra la aplicación"""
