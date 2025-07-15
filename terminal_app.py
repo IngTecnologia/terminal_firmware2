@@ -277,20 +277,32 @@ class TerminalUI:
     def __init__(self, terminal_app):
         self.terminal_app = terminal_app
         self.root = tk.Tk()
+        self.screen_width = 800  # Valor por defecto
+        self.screen_height = 400  # Valor por defecto
         self.setup_ui()
         self.camera_running = False
         
     def setup_ui(self):
-        """Configura la interfaz principal para pantalla 400x800 vertical"""
-        # Configuración de ventana para pantalla 400x800 vertical
+        """Configura la interfaz principal para pantalla completa vertical"""
+        # Configuración de ventana para pantalla completa
         self.root.title("Terminal BioEntry")
-        self.root.geometry("400x800")
         self.root.configure(bg='black')
         
-        # Eliminar decoraciones de ventana (pantalla completa)
+        # Configurar pantalla completa real
+        self.root.attributes('-fullscreen', True)
         self.root.overrideredirect(True)
         
-        # Label para cámara de fondo (pantalla completa)
+        # Obtener dimensiones reales de la pantalla
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        print(f"Pantalla detectada: {screen_width}x{screen_height}")
+        
+        # Actualizar dimensiones para usar en la aplicación
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        
+        # Label para cámara de fondo (pantalla completa usando dimensiones reales)
         self.camera_label = tk.Label(
             self.root,
             text="Iniciando cámara...",
@@ -298,57 +310,57 @@ class TerminalUI:
             fg='white',
             font=('Arial', 20)
         )
-        self.camera_label.place(x=0, y=0, width=400, height=800)
+        self.camera_label.place(x=0, y=0, width=screen_width, height=screen_height)
         
         # Frame superior transparente para título y estado
-        top_frame = tk.Frame(self.root, bg='black', height=100)
-        top_frame.place(x=0, y=0, width=400, height=100)
+        top_frame = tk.Frame(self.root, bg='black', height=120)
+        top_frame.place(x=0, y=0, width=screen_width, height=120)
         
         # Título superpuesto
         title_label = tk.Label(
             top_frame,
             text="TERMINAL\nDE ACCESO",
-            font=('Arial', 16, 'bold'),
+            font=('Arial', 18, 'bold'),
             bg='black',
             fg='white',
             relief=tk.FLAT,
             justify=tk.CENTER
         )
-        title_label.pack(pady=(10, 0))
+        title_label.pack(pady=(15, 0))
         
         # Hora (centrado en la parte superior)
         self.time_label = tk.Label(
             top_frame,
             text="",
-            font=('Arial', 11, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='black',
             fg='white',
             justify=tk.CENTER
         )
-        self.time_label.place(x=150, y=70)
+        self.time_label.place(x=screen_width//2-50, y=85)
         
         # Estado de conexión (esquina superior derecha)
         self.online_status = tk.Label(
             self.root,
             text="● OFFLINE",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', 11, 'bold'),
             bg='black',
             fg='#e74c3c'
         )
-        self.online_status.place(x=320, y=10)
+        self.online_status.place(x=screen_width-120, y=15)
         
         # Frame inferior para mensajes
-        bottom_frame = tk.Frame(self.root, bg='black', height=120)
-        bottom_frame.place(x=0, y=680, width=400, height=120)
+        bottom_frame = tk.Frame(self.root, bg='black', height=140)
+        bottom_frame.place(x=0, y=screen_height-140, width=screen_width, height=140)
         
         # Label para mensajes superpuesto
         self.message_label = tk.Label(
             bottom_frame,
             text="COLÓQUESE FRENTE\nA LA CÁMARA",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 16, 'bold'),
             bg='black',
             fg='#00ff00',
-            wraplength=350,
+            wraplength=screen_width-50,
             justify=tk.CENTER
         )
         self.message_label.pack(expand=True)
@@ -357,7 +369,7 @@ class TerminalUI:
         exit_button = tk.Button(
             self.root,
             text="×",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 16, 'bold'),
             bg='#e74c3c',
             fg='white',
             width=2,
@@ -365,7 +377,12 @@ class TerminalUI:
             relief=tk.FLAT,
             command=self.exit_app
         )
-        exit_button.place(x=360, y=760)
+        exit_button.place(x=screen_width-50, y=screen_height-50)
+        
+        # Vincular teclas de escape
+        self.root.bind('<Escape>', lambda e: self.exit_app())
+        self.root.bind('<Key-q>', lambda e: self.exit_app())
+        self.root.focus_set()  # Permitir captura de teclas
         
         # Actualizar tiempo cada segundo
         self.update_time()
@@ -403,9 +420,9 @@ class TerminalUI:
         self.root.after(3000, lambda: self.show_message("COLÓQUESE FRENTE A LA CÁMARA"))
     
     def update_camera_frame(self, frame):
-        """Actualiza el frame de la cámara en pantalla completa vertical"""
-        # Redimensionar frame para pantalla completa 400x800 (vertical)
-        frame_resized = cv2.resize(frame, (400, 800))
+        """Actualiza el frame de la cámara en pantalla completa"""
+        # Redimensionar frame para pantalla completa usando dimensiones reales
+        frame_resized = cv2.resize(frame, (self.screen_width, self.screen_height))
         
         # Convertir de BGR a RGB
         frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
