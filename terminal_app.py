@@ -22,22 +22,50 @@ from PIL import Image, ImageTk
 import io
 import sqlite3
 
-# Configuración de la terminal
+def load_config():
+    """Carga configuración desde archivo JSON"""
+    try:
+        with open('config.json', 'r') as f:
+            config = json.load(f)
+        return config
+    except FileNotFoundError:
+        print("Archivo config.json no encontrado, usando configuración por defecto")
+        return {
+            "terminal": {
+                "terminal_id": "TERMINAL_001",
+                "api_key": "terminal_key_001"
+            },
+            "api": {
+                "base_url": "http://localhost:8000",
+                "timeout": 10
+            },
+            "camera": {
+                "resolution": [640, 480],
+                "face_detection_timeout": 3.0
+            },
+            "offline": {
+                "database_path": "./terminal_offline.db"
+            }
+        }
+
+# Cargar configuración
+CONFIG = load_config()
+
+# Configuración de la terminal (compatibilidad)
 TERMINAL_CONFIG = {
-    "terminal_id": "TERMINAL_001",
-    "api_key": "terminal_key_001",
-    "api_base_url": "http://localhost:8000",  # Cambiar por la URL de la API
-    "camera_resolution": (640, 480),
-    "preview_size": (400, 300),
+    "terminal_id": CONFIG["terminal"]["terminal_id"],
+    "api_key": CONFIG["terminal"]["api_key"],
+    "api_base_url": CONFIG["api"]["base_url"],
+    "camera_resolution": tuple(CONFIG["camera"]["resolution"]),
     "face_cascade_paths": [
         '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
         '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml',
         '/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
         'haarcascade_frontalface_default.xml'
     ],
-    "face_detection_timeout": 3.0,  # Segundos para detectar cara antes de capturar
-    "connection_timeout": 10,  # Timeout para conexión API
-    "offline_db_path": "terminal_offline.db"
+    "face_detection_timeout": CONFIG["camera"]["face_detection_timeout"],
+    "connection_timeout": CONFIG["api"]["timeout"],
+    "offline_db_path": CONFIG["offline"]["database_path"]
 }
 
 class FaceDetector:
@@ -72,9 +100,52 @@ class FaceDetector:
     def draw_faces(self, frame, faces):
         """Dibuja rectángulos alrededor de las caras detectadas"""
         for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            cv2.putText(frame, 'Cara Detectada', (x, y-10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # Rectángulo principal verde
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
+            
+            # Rectángulo interior semi-transparente
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (x, y), (x+w, y+h), (0, 255, 0), -1)
+            cv2.addWeighted(overlay, 0.1, frame, 0.9, 0, frame)
+            
+            # Texto más grande y visible
+            font_scale = 1.0
+            thickness = 2
+            text = 'CARA DETECTADA'
+            
+            # Calcular posición del texto centrado
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
+            text_x = x + (w - text_size[0]) // 2
+            text_y = y - 15 if y > 30 else y + h + 25
+            
+            # Fondo del texto
+            cv2.rectangle(frame, (text_x - 5, text_y - text_size[1] - 5), 
+                         (text_x + text_size[0] + 5, text_y + 5), (0, 0, 0), -1)
+            
+            # Texto
+            cv2.putText(frame, text, (text_x, text_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 255, 0), thickness)
+            
+            # Esquinas de enfoque
+            corner_length = 20
+            corner_thickness = 4
+            
+            # Esquina superior izquierda
+            cv2.line(frame, (x, y), (x + corner_length, y), (0, 255, 0), corner_thickness)
+            cv2.line(frame, (x, y), (x, y + corner_length), (0, 255, 0), corner_thickness)
+            
+            # Esquina superior derecha
+            cv2.line(frame, (x + w, y), (x + w - corner_length, y), (0, 255, 0), corner_thickness)
+            cv2.line(frame, (x + w, y), (x + w, y + corner_length), (0, 255, 0), corner_thickness)
+            
+            # Esquina inferior izquierda
+            cv2.line(frame, (x, y + h), (x + corner_length, y + h), (0, 255, 0), corner_thickness)
+            cv2.line(frame, (x, y + h), (x, y + h - corner_length), (0, 255, 0), corner_thickness)
+            
+            # Esquina inferior derecha
+            cv2.line(frame, (x + w, y + h), (x + w - corner_length, y + h), (0, 255, 0), corner_thickness)
+            cv2.line(frame, (x + w, y + h), (x + w, y + h - corner_length), (0, 255, 0), corner_thickness)
+            
         return frame
 
 class APIClient:
@@ -210,121 +281,129 @@ class TerminalUI:
         self.camera_running = False
         
     def setup_ui(self):
-        """Configura la interfaz principal"""
+        """Configura la interfaz principal para pantalla 800x400 vertical"""
         # Configuración de ventana para pantalla 800x400 vertical
         self.root.title("Terminal BioEntry")
         self.root.geometry("800x400")
-        self.root.configure(bg='#2c3e50')
+        self.root.configure(bg='black')
         
-        # Eliminar decoraciones de ventana (para pantalla completa)
+        # Eliminar decoraciones de ventana (pantalla completa)
         self.root.overrideredirect(True)
         
-        # Frame principal
-        main_frame = tk.Frame(self.root, bg='#2c3e50')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Título
-        title_label = tk.Label(
-            main_frame,
-            text="Terminal de Acceso",
-            font=('Arial', 24, 'bold'),
-            bg='#2c3e50',
-            fg='white'
-        )
-        title_label.pack(pady=(0, 20))
-        
-        # Frame para cámara
-        self.camera_frame = tk.Frame(main_frame, bg='#34495e', relief=tk.RAISED, bd=2)
-        self.camera_frame.pack(pady=10)
-        
-        # Label para mostrar la cámara
+        # Label para cámara de fondo (pantalla completa)
         self.camera_label = tk.Label(
-            self.camera_frame,
-            text="Cámara no disponible",
-            width=50,
-            height=15,
-            bg='#34495e',
+            self.root,
+            text="Iniciando cámara...",
+            bg='black',
             fg='white',
-            font=('Arial', 12)
+            font=('Arial', 20)
         )
-        self.camera_label.pack(padx=10, pady=10)
+        self.camera_label.place(x=0, y=0, width=800, height=400)
         
-        # Frame para mensajes
-        self.message_frame = tk.Frame(main_frame, bg='#2c3e50')
-        self.message_frame.pack(fill=tk.X, pady=10)
+        # Frame superior transparente para título y estado
+        top_frame = tk.Frame(self.root, bg='black', height=80)
+        top_frame.place(x=0, y=0, width=800, height=80)
         
-        # Label para mensajes
-        self.message_label = tk.Label(
-            self.message_frame,
-            text="Colóquese frente a la cámara",
-            font=('Arial', 16),
-            bg='#2c3e50',
-            fg='#ecf0f1',
-            wraplength=750
+        # Título superpuesto
+        title_label = tk.Label(
+            top_frame,
+            text="TERMINAL DE ACCESO",
+            font=('Arial', 18, 'bold'),
+            bg='black',
+            fg='white',
+            relief=tk.FLAT
         )
-        self.message_label.pack()
+        title_label.pack(pady=(10, 0))
         
-        # Frame para estado
-        status_frame = tk.Frame(main_frame, bg='#2c3e50')
-        status_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        # Labels de estado
+        # Estado de conexión (esquina superior derecha)
         self.online_status = tk.Label(
-            status_frame,
-            text="● Offline",
-            font=('Arial', 12),
-            bg='#2c3e50',
+            top_frame,
+            text="● OFFLINE",
+            font=('Arial', 12, 'bold'),
+            bg='black',
             fg='#e74c3c'
         )
-        self.online_status.pack(side=tk.LEFT)
+        self.online_status.place(x=650, y=10)
         
+        # Hora (esquina superior izquierda)
         self.time_label = tk.Label(
-            status_frame,
+            top_frame,
             text="",
-            font=('Arial', 12),
-            bg='#2c3e50',
-            fg='#ecf0f1'
+            font=('Arial', 12, 'bold'),
+            bg='black',
+            fg='white'
         )
-        self.time_label.pack(side=tk.RIGHT)
+        self.time_label.place(x=20, y=10)
+        
+        # Frame inferior para mensajes
+        bottom_frame = tk.Frame(self.root, bg='black', height=100)
+        bottom_frame.place(x=0, y=300, width=800, height=100)
+        
+        # Label para mensajes superpuesto
+        self.message_label = tk.Label(
+            bottom_frame,
+            text="COLÓQUESE FRENTE A LA CÁMARA",
+            font=('Arial', 16, 'bold'),
+            bg='black',
+            fg='#00ff00',
+            wraplength=750,
+            justify=tk.CENTER
+        )
+        self.message_label.pack(expand=True)
+        
+        # Botón de salida oculto (esquina inferior derecha)
+        exit_button = tk.Button(
+            self.root,
+            text="×",
+            font=('Arial', 16, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            width=3,
+            height=1,
+            relief=tk.FLAT,
+            command=self.exit_app
+        )
+        exit_button.place(x=750, y=360)
         
         # Actualizar tiempo cada segundo
         self.update_time()
+    
+    def exit_app(self):
+        """Cierra la aplicación"""
+        self.root.quit()
         
     def update_time(self):
         """Actualiza la hora en pantalla"""
-        current_time = datetime.now().strftime("%H:%M:%S - %d/%m/%Y")
-        self.time_label.config(text=current_time)
+        current_time = datetime.now().strftime("%H:%M")
+        current_date = datetime.now().strftime("%d/%m")
+        self.time_label.config(text=f"{current_time}\n{current_date}")
         self.root.after(1000, self.update_time)
     
     def update_status(self, online: bool):
         """Actualiza el estado de conexión"""
         if online:
-            self.online_status.config(text="● Online", fg='#27ae60')
+            self.online_status.config(text="● ONLINE", fg='#00ff00')
         else:
-            self.online_status.config(text="● Offline", fg='#e74c3c')
+            self.online_status.config(text="● OFFLINE", fg='#ff0000')
     
-    def show_message(self, message: str, color: str = '#ecf0f1'):
+    def show_message(self, message: str, color: str = '#00ff00'):
         """Muestra un mensaje en pantalla"""
-        self.message_label.config(text=message, fg=color)
+        self.message_label.config(text=message.upper(), fg=color)
         
     def show_success(self, message: str):
         """Muestra mensaje de éxito"""
-        self.show_message(message, '#27ae60')
-        self.root.after(3000, lambda: self.show_message("Colóquese frente a la cámara"))
+        self.show_message(message, '#00ff00')
+        self.root.after(3000, lambda: self.show_message("COLÓQUESE FRENTE A LA CÁMARA"))
         
     def show_error(self, message: str):
         """Muestra mensaje de error"""
-        self.show_message(message, '#e74c3c')
-        self.root.after(3000, lambda: self.show_message("Colóquese frente a la cámara"))
+        self.show_message(message, '#ff0000')
+        self.root.after(3000, lambda: self.show_message("COLÓQUESE FRENTE A LA CÁMARA"))
     
     def update_camera_frame(self, frame):
-        """Actualiza el frame de la cámara"""
-        # Redimensionar frame para la UI
-        height, width = frame.shape[:2]
-        new_width = 400
-        new_height = int(height * new_width / width)
-        
-        frame_resized = cv2.resize(frame, (new_width, new_height))
+        """Actualiza el frame de la cámara en pantalla completa"""
+        # Redimensionar frame para pantalla completa 800x400
+        frame_resized = cv2.resize(frame, (800, 400))
         
         # Convertir de BGR a RGB
         frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
@@ -363,9 +442,10 @@ class BioEntryTerminal:
         self.frame_queue = queue.Queue(maxsize=2)
         
     def setup_camera(self):
-        """Configura la cámara"""
+        """Configura la cámara para pantalla 800x400"""
+        # Configurar cámara con resolución optimizada
         config = self.picam2.create_preview_configuration(
-            main={"size": TERMINAL_CONFIG["camera_resolution"]}
+            main={"size": (800, 600)}  # Resolución más alta para mejor calidad
         )
         self.picam2.configure(config)
         
